@@ -253,12 +253,15 @@ tls_t *tls_new(xmpp_conn_t *conn)
         SSL_CTX_set_mode(tls->ssl_ctx, SSL_MODE_ENABLE_PARTIAL_WRITE);
         if (conn->ssl_cert_path) {
             ret = SSL_CTX_load_verify_locations(tls->ssl_ctx, NULL, conn->ssl_cert_path);
-            if (ret == 0) {
+            if (ret == 0 && !conn->tls_trust) {
                 /* Returns 1 on success and 0 on failure. */
-                xmpp_error(tls->ctx, "tls", "SSL_CTX_load_verify_locations() failed to set path %s.", conn->ssl_cert_path);
+                xmpp_error(tls->ctx, "tls", 
+                           "SSL_CTX_load_verify_locations() failed to set path %s.", conn->ssl_cert_path);
                 goto err_free_ctx;
             } else {
-                xmpp_debug(tls->ctx, "tls", "SSL_CTX_load_verify_locations() succeeded to set SSL certificate path to %s.", conn->ssl_cert_path);
+                xmpp_debug(tls->ctx, "tls",
+                           "SSL_CTX_load_verify_locations() succeeded to set SSL certificate path to %s.",
+                            conn->ssl_cert_path);
             }
         } else {
             ret = SSL_CTX_set_default_verify_paths(tls->ssl_ctx);
