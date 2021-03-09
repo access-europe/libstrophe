@@ -1,3 +1,39 @@
+0.10.1
+	- Fixed compilation error when LibreSSL is used
+	- Fixed crash when NULL is provided as password
+
+0.10.0
+	- Coding style has been unified
+	- SCRAM-SHA-256 and SCRAM-SHA-512 support
+	- c-ares support
+	- LibreSSL support
+	- Introduced global timed handlers that fire periodically regardless of
+	  connections status, such a handler can be used to implement deferred
+	  re-connection
+	- examples/register implements XEP-0077
+	- Fixed issue with IPv6 on Windows (#153)
+	- Improved portability across systems such as Haiku, Windows
+	- New API:
+		- xmpp_stanza_get_child_by_name_and_ns()
+		- xmpp_conn_is_connecting()
+		- xmpp_conn_is_connected()
+		- xmpp_conn_is_disconnected()
+		- xmpp_stanza_new_from_string()
+		- xmpp_stanza_add_child_ex()
+		- xmpp_stanza_get_context()
+		- xmpp_stanza_reply_error()
+		- xmpp_global_timed_handler_add()
+		- xmpp_global_timed_handler_delete()
+
+0.9.3
+	- PLAIN mechanism is used only when no other mechanisms are supported
+	- Legacy authentication is disabled by default, can be enabled with
+	  connection flag XMPP_CONN_FLAG_LEGACY_AUTH
+	- Session is not established if it is optional
+	- Fixed a bug causing a reused connection not to cleanup properly
+	- Improved debug logging in OpenSSL module
+	- Few memory leaks fixed
+
 0.9.2
 	- OpenSSL tls module verifies certificate by default. Set flag
 	  XMPP_CONN_FLAG_TRUST_TLS to ignore result of the verification
@@ -12,6 +48,8 @@
 	  second in order to reduce CPU consumption
 	- Reduced memory usage in expat module
 	- New functions:
+		- xmpp_error_new()
+		- xmpp_send_error()
 		- xmpp_ctx_set_timeout()
 		- xmpp_sha1_digest()
 

@@ -23,7 +23,7 @@ include $(BUILD_EXECUTABLE)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libstrophe
-LOCAL_CFLAGS :=
+LOCAL_CFLAGS := -DHAVE_DECL_VA_COPY
 LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/.. \
 	$(LOCAL_PATH)/../src \
@@ -45,6 +45,8 @@ LOCAL_SRC_FILES := \
 	../src/sasl.c \
 	../src/scram.c \
 	../src/sha1.c \
+	../src/sha256.c \
+	../src/sha512.c \
 	../src/snprintf.c \
 	../src/sock.c \
 	../src/stanza.c \
@@ -62,7 +64,7 @@ include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libexpat
-LOCAL_CFLAGS := -DHAVE_MEMMOVE
+LOCAL_CFLAGS := -DHAVE_MEMMOVE -DXML_DEV_URANDOM
 #LOCAL_C_INCLUDES := \
 #	$(LOCAL_PATH)/expat
 

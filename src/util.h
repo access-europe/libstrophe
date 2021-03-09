@@ -1,7 +1,7 @@
 /* util.h
 ** strophe XMPP client library -- various utility functions
 **
-** Copyright (C) 2005-2009 Collecta, Inc. 
+** Copyright (C) 2005-2009 Collecta, Inc.
 **
 **  This software is provided AS-IS with no warranty, either express
 **  or implied.
@@ -17,6 +17,10 @@
 #define __LIBSTROPHE_UTIL_H__
 
 #include "ostypes.h"
+
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
+#endif /* ARRAY_SIZE */
 
 /* TODO evaluate x and y only once */
 #define xmpp_min(x, y) ((x) < (y) ? (x) : (y))
