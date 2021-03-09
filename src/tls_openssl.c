@@ -251,23 +251,25 @@ tls_t *tls_new(xmpp_conn_t *conn)
 
         SSL_CTX_set_client_cert_cb(tls->ssl_ctx, NULL);
         SSL_CTX_set_mode(tls->ssl_ctx, SSL_MODE_ENABLE_PARTIAL_WRITE);
-
-        ret = SSL_CTX_set_default_verify_paths(tls->ssl_ctx);
-        if (ret == 0 && !conn->tls_trust) {
-            /*
-             * Returns 1 on success and 0 on failure. A missing default
-             * location is still treated as a success.
-             * Ignore errors when XMPP_CONN_FLAG_TRUST_TLS is set.
-             */
-            xmpp_error(tls->ctx, "tls",
-                       "SSL_CTX_set_default_verify_paths() failed");
-            goto err_free_ctx;
+        if (conn->ssl_cert_path) {
+            xmpp_debug(tls->ctx, "tls", "SSL certificate path found: %s", conn->ssl_cert_path);
+            SSL_CTX_load_verify_locations(tls->ssl_ctx, NULL, conn->ssl_cert_path);
+        } else {
+            ret = SSL_CTX_set_default_verify_paths(tls->ssl_ctx);
+            if (ret == 0 && !conn->tls_trust) {
+                /*
+                * Returns 1 on success and 0 on failure. A missing default
+                * location is still treated as a success.
+                * Ignore errors when XMPP_CONN_FLAG_TRUST_TLS is set.
+                */
+                xmpp_error(tls->ctx, "tls",
+                          "SSL_CTX_set_default_verify_paths() failed");
+                goto err_free_ctx;
+            }
+            tls->ssl = SSL_new(tls->ssl_ctx);
+            if (tls->ssl == NULL)
+                goto err_free_ctx;
         }
-
-        tls->ssl = SSL_new(tls->ssl_ctx);
-        if (tls->ssl == NULL)
-            goto err_free_ctx;
-
 #if OPENSSL_VERSION_NUMBER >= 0x0908060L && !defined(OPENSSL_NO_TLSEXT)
         /* Enable SNI. */
         SSL_set_tlsext_host_name(tls->ssl, conn->domain);

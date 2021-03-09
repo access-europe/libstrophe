@@ -147,6 +147,8 @@ xmpp_conn_t *xmpp_conn_new(xmpp_ctx_t *const ctx)
         conn->auth_legacy_enabled = 0;
         conn->secured = 0;
 
+        conn->ssl_cert_path = NULL;
+
         conn->bind_required = 0;
         conn->session_required = 0;
 
@@ -338,6 +340,9 @@ int xmpp_conn_release(xmpp_conn_t *const conn)
             xmpp_free(ctx, conn->pass);
         if (conn->lang)
             xmpp_free(ctx, conn->lang);
+        if (conn->ssl_cert_path) 
+            xmpp_free(ctx, conn->ssl_cert_path);
+
         xmpp_free(ctx, conn);
         released = 1;
     }
@@ -1018,6 +1023,16 @@ void xmpp_conn_disable_tls(xmpp_conn_t *const conn)
 
     flags |= XMPP_CONN_FLAG_DISABLE_TLS;
     (void)xmpp_conn_set_flags(conn, flags);
+}
+
+/** Set SSL certificate path.
+ *
+ *  @param conn a Strophe connection object
+ *  @param path a path to SSL certificate directory
+ */
+void xmpp_conn_sslcert_path(xmpp_conn_t * const conn, char *path)
+{
+    conn->ssl_cert_path = xmpp_strdup(conn->ctx, path);
 }
 
 /** Return whether TLS session is established or not.
