@@ -34,7 +34,7 @@
 #define DEFAULT_SEND_QUEUE_MAX 64
 #endif
 #ifndef DISCONNECT_TIMEOUT
-/** @def DISCONNECT_TIMEOUT 
+/** @def DISCONNECT_TIMEOUT
  *  The time to wait (in milliseconds) for graceful disconnection to
  *  complete before the connection is reset.  The default is 2 seconds.
  */
@@ -48,32 +48,35 @@
 #define CONNECT_TIMEOUT 5000 /* 5 seconds */
 #endif
 
-static int _disconnect_cleanup(xmpp_conn_t * const conn,
-                               void * const userdata);
-static char *_conn_build_stream_tag(xmpp_conn_t * const conn,
-                                    char **attributes, size_t attributes_len);
-static void _conn_attributes_new(xmpp_conn_t *conn, char **attrs,
-                                 char ***attributes, size_t *attributes_len);
-static void _conn_attributes_destroy(xmpp_conn_t *conn, char **attributes,
+static int _disconnect_cleanup(xmpp_conn_t *const conn, void *const userdata);
+static char *_conn_build_stream_tag(xmpp_conn_t *const conn,
+                                    char **attributes,
+                                    size_t attributes_len);
+static void _conn_attributes_new(xmpp_conn_t *conn,
+                                 char **attrs,
+                                 char ***attributes,
+                                 size_t *attributes_len);
+static void _conn_attributes_destroy(xmpp_conn_t *conn,
+                                     char **attributes,
                                      size_t attributes_len);
-static void _handle_stream_start(char *name, char **attrs,
-                                 void * const userdata);
-static void _handle_stream_end(char *name,
-                               void * const userdata);
-static void _handle_stream_stanza(xmpp_stanza_t *stanza,
-                                  void * const userdata);
-static unsigned short _conn_default_port(xmpp_conn_t * const conn,
+static void
+_handle_stream_start(char *name, char **attrs, void *const userdata);
+static void _handle_stream_end(char *name, void *const userdata);
+static void _handle_stream_stanza(xmpp_stanza_t *stanza, void *const userdata);
+static unsigned short _conn_default_port(xmpp_conn_t *const conn,
                                          xmpp_conn_type_t type);
-static void _conn_reset(xmpp_conn_t * const conn);
-static int _conn_connect(xmpp_conn_t * const conn,
-                         const char * const domain,
-                         const char * const host,
+static void _conn_reset(xmpp_conn_t *const conn);
+static int _conn_connect(xmpp_conn_t *const conn,
+                         const char *const domain,
+                         const char *const host,
                          unsigned short port,
                          xmpp_conn_type_t type,
                          xmpp_conn_handler callback,
-                         void * const userdata);
+                         void *const userdata);
 
-void xmpp_send_error(xmpp_conn_t * const conn, xmpp_error_type_t const type, char * const text)
+void xmpp_send_error(xmpp_conn_t *const conn,
+                     xmpp_error_type_t const type,
+                     char *const text)
 {
     xmpp_stanza_t *error = xmpp_error_new(conn->ctx, type, text);
 
@@ -90,12 +93,13 @@ void xmpp_send_error(xmpp_conn_t * const conn, xmpp_error_type_t const type, cha
  *
  *  @ingroup Connections
  */
-xmpp_conn_t *xmpp_conn_new(xmpp_ctx_t * const ctx)
+xmpp_conn_t *xmpp_conn_new(xmpp_ctx_t *const ctx)
 {
     xmpp_conn_t *conn = NULL;
     xmpp_connlist_t *tail, *item;
 
-    if (ctx == NULL) return NULL;
+    if (ctx == NULL)
+        return NULL;
 
     conn = xmpp_alloc(ctx, sizeof(xmpp_conn_t));
     if (conn != NULL) {
@@ -140,6 +144,7 @@ xmpp_conn_t *xmpp_conn_new(xmpp_ctx_t * const ctx)
         conn->tls_trust = 0;
         conn->tls_failed = 0;
         conn->sasl_support = 0;
+        conn->auth_legacy_enabled = 0;
         conn->secured = 0;
 
         conn->ssl_cert_path = NULL;
@@ -147,11 +152,9 @@ xmpp_conn_t *xmpp_conn_new(xmpp_ctx_t * const ctx)
         conn->bind_required = 0;
         conn->session_required = 0;
 
-        conn->parser = parser_new(conn->ctx,
-                                  _handle_stream_start,
-                                  _handle_stream_end,
-                                  _handle_stream_stanza,
-                                  conn);
+        conn->parser =
+            parser_new(conn->ctx, _handle_stream_start, _handle_stream_end,
+                       _handle_stream_stanza, conn);
         conn->reset_parser = 0;
 
         conn->authenticated = 0;
@@ -167,7 +170,8 @@ xmpp_conn_t *xmpp_conn_new(xmpp_ctx_t * const ctx)
 
         /* add connection to ctx->connlist */
         tail = conn->ctx->connlist;
-        while (tail && tail->next) tail = tail->next;
+        while (tail && tail->next)
+            tail = tail->next;
 
         item = xmpp_alloc(conn->ctx, sizeof(xmpp_connlist_t));
         if (!item) {
@@ -180,16 +184,18 @@ xmpp_conn_t *xmpp_conn_new(xmpp_ctx_t * const ctx)
             item->conn = conn;
             item->next = NULL;
 
-            if (tail) tail->next = item;
-            else conn->ctx->connlist = item;
+            if (tail)
+                tail->next = item;
+            else
+                conn->ctx->connlist = item;
         }
     }
-    
+
     return conn;
 }
 
 /** Clone a Strophe connection object.
- *  
+ *
  *  @param conn a Strophe connection object
  *
  *  @return the same conn object passed in with its reference count
@@ -197,7 +203,7 @@ xmpp_conn_t *xmpp_conn_new(xmpp_ctx_t * const ctx)
  *
  *  @ingroup Connections
  */
-xmpp_conn_t *xmpp_conn_clone(xmpp_conn_t * const conn)
+xmpp_conn_t *xmpp_conn_clone(xmpp_conn_t *const conn)
 {
     conn->ref++;
     return conn;
@@ -215,7 +221,7 @@ xmpp_conn_t *xmpp_conn_clone(xmpp_conn_t * const conn)
  *
  *  @ingroup Connections
  */
-void xmpp_conn_set_keepalive(xmpp_conn_t * const conn, int timeout, int interval)
+void xmpp_conn_set_keepalive(xmpp_conn_t *const conn, int timeout, int interval)
 {
     int ret = 0;
 
@@ -241,7 +247,7 @@ void xmpp_conn_set_keepalive(xmpp_conn_t * const conn, int timeout, int interval
  *
  *  @ingroup Connections
  */
-int xmpp_conn_release(xmpp_conn_t * const conn)
+int xmpp_conn_release(xmpp_conn_t *const conn)
 {
     xmpp_ctx_t *ctx;
     xmpp_connlist_t *item, *prev;
@@ -254,6 +260,11 @@ int xmpp_conn_release(xmpp_conn_t * const conn)
         conn->ref--;
     else {
         ctx = conn->ctx;
+
+        if (conn->state == XMPP_STATE_CONNECTING ||
+            conn->state == XMPP_STATE_CONNECTED) {
+            conn_disconnect(conn);
+        }
 
         /* remove connection from context's connlist */
         if (ctx->connlist->conn == conn) {
@@ -300,7 +311,7 @@ int xmpp_conn_release(xmpp_conn_t * const conn)
             while (hlitem) {
                 thli = hlitem;
                 hlitem = hlitem->next;
-                xmpp_free(conn->ctx, thli->id);
+                xmpp_free(conn->ctx, thli->u.id);
                 xmpp_free(conn->ctx, thli);
             }
         }
@@ -312,18 +323,26 @@ int xmpp_conn_release(xmpp_conn_t * const conn)
             thli = hlitem;
             hlitem = hlitem->next;
 
-            if (thli->ns) xmpp_free(ctx, thli->ns);
-            if (thli->name) xmpp_free(ctx, thli->name);
-            if (thli->type) xmpp_free(ctx, thli->type);
+            if (thli->u.ns)
+                xmpp_free(ctx, thli->u.ns);
+            if (thli->u.name)
+                xmpp_free(ctx, thli->u.name);
+            if (thli->u.type)
+                xmpp_free(ctx, thli->u.type);
             xmpp_free(ctx, thli);
         }
 
         parser_free(conn->parser);
 
-        if (conn->jid) xmpp_free(ctx, conn->jid);
-        if (conn->pass) xmpp_free(ctx, conn->pass);
-        if (conn->lang) xmpp_free(ctx, conn->lang);
-        if (conn->ssl_cert_path) xmpp_free(ctx, conn->ssl_cert_path);
+        if (conn->jid)
+            xmpp_free(ctx, conn->jid);
+        if (conn->pass)
+            xmpp_free(ctx, conn->pass);
+        if (conn->lang)
+            xmpp_free(ctx, conn->lang);
+        if (conn->ssl_cert_path) 
+            xmpp_free(ctx, conn->ssl_cert_path);
+
         xmpp_free(ctx, conn);
         released = 1;
     }
@@ -332,14 +351,14 @@ int xmpp_conn_release(xmpp_conn_t * const conn)
 }
 
 /** Get the JID which is or will be bound to the connection.
- *  
+ *
  *  @param conn a Strophe connection object
  *
  *  @return a string containing the full JID or NULL if it has not been set
  *
  *  @ingroup Connections
  */
-const char *xmpp_conn_get_jid(const xmpp_conn_t * const conn)
+const char *xmpp_conn_get_jid(const xmpp_conn_t *const conn)
 {
     return conn->jid;
 }
@@ -357,7 +376,7 @@ const char *xmpp_conn_get_jid(const xmpp_conn_t * const conn)
  *
  * @ingroup Connections
  */
-const char *xmpp_conn_get_bound_jid(const xmpp_conn_t * const conn)
+const char *xmpp_conn_get_bound_jid(const xmpp_conn_t *const conn)
 {
     return conn->bound_jid;
 }
@@ -373,9 +392,10 @@ const char *xmpp_conn_get_bound_jid(const xmpp_conn_t * const conn)
  *
  *  @ingroup Connections
  */
-void xmpp_conn_set_jid(xmpp_conn_t * const conn, const char * const jid)
+void xmpp_conn_set_jid(xmpp_conn_t *const conn, const char *const jid)
 {
-    if (conn->jid) xmpp_free(conn->ctx, conn->jid);
+    if (conn->jid)
+        xmpp_free(conn->ctx, conn->jid);
     conn->jid = xmpp_strdup(conn->ctx, jid);
 }
 
@@ -387,7 +407,7 @@ void xmpp_conn_set_jid(xmpp_conn_t * const conn, const char * const jid)
  *
  *  @ingroup Connections
  */
-const char *xmpp_conn_get_pass(const xmpp_conn_t * const conn)
+const char *xmpp_conn_get_pass(const xmpp_conn_t *const conn)
 {
     return conn->pass;
 }
@@ -395,28 +415,29 @@ const char *xmpp_conn_get_pass(const xmpp_conn_t * const conn)
 /** Set the password used to authenticate the connection.
  *  If any password was previously set, it will be discarded.  The function
  *  will make a copy of the password string.
- * 
+ *
  *  @param conn a Strophe connection object
  *  @param pass the password
  *
  *  @ingroup Connections
  */
-void xmpp_conn_set_pass(xmpp_conn_t * const conn, const char * const pass)
+void xmpp_conn_set_pass(xmpp_conn_t *const conn, const char *const pass)
 {
-    if (conn->pass) xmpp_free(conn->ctx, conn->pass);
-    conn->pass = xmpp_strdup(conn->ctx, pass);
+    if (conn->pass)
+        xmpp_free(conn->ctx, conn->pass);
+    conn->pass = pass ? xmpp_strdup(conn->ctx, pass) : NULL;
 }
 
 /** Get the strophe context that the connection is associated with.
-*  @param conn a Strophe connection object
-* 
-*  @return a Strophe context
-* 
-*  @ingroup Connections
-*/
-xmpp_ctx_t* xmpp_conn_get_context(xmpp_conn_t * const conn)
+ *  @param conn a Strophe connection object
+ *
+ *  @return a Strophe context
+ *
+ *  @ingroup Connections
+ */
+xmpp_ctx_t *xmpp_conn_get_context(xmpp_conn_t *const conn)
 {
-        return conn->ctx;
+    return conn->ctx;
 }
 
 /** Initiate a connection to the XMPP server.
@@ -424,7 +445,7 @@ xmpp_ctx_t* xmpp_conn_get_context(xmpp_conn_t * const conn)
  *  process to the XMPP server, and notifications of connection state changes
  *  will be sent to the callback function.  The domain and port to connect to
  *  are usually determined by an SRV lookup for the xmpp-client service at
- *  the domain specified in the JID.  If SRV lookup fails, altdomain and 
+ *  the domain specified in the JID.  If SRV lookup fails, altdomain and
  *  altport will be used instead if specified.
  *
  *  @param conn a Strophe connection object
@@ -440,11 +461,11 @@ xmpp_ctx_t* xmpp_conn_get_context(xmpp_conn_t * const conn)
  *
  *  @ingroup Connections
  */
-int xmpp_connect_client(xmpp_conn_t * const conn,
-                        const char * const altdomain,
+int xmpp_connect_client(xmpp_conn_t *const conn,
+                        const char *const altdomain,
                         unsigned short altport,
                         xmpp_conn_handler callback,
-                        void * const userdata)
+                        void *const userdata)
 {
     resolver_srv_rr_t *srv_rr_list = NULL;
     resolver_srv_rr_t *rr;
@@ -455,7 +476,8 @@ int xmpp_connect_client(xmpp_conn_t * const conn,
     int rc;
 
     domain = xmpp_jid_domain(conn->ctx, conn->jid);
-    if (!domain) return XMPP_EMEM;
+    if (!domain)
+        return XMPP_EMEM;
 
     if (altdomain != NULL) {
         xmpp_debug(conn->ctx, "xmpp", "Connecting via altdomain.");
@@ -463,16 +485,17 @@ int xmpp_connect_client(xmpp_conn_t * const conn,
         port = altport ? altport : _conn_default_port(conn, XMPP_CLIENT);
         found = XMPP_DOMAIN_ALTDOMAIN;
 
-    /* SSL tunneled connection on 5223 port is legacy and doesn't
-     * have an SRV record. */
+        /* SSL tunneled connection on 5223 port is legacy and doesn't
+         * have an SRV record. */
     } else if (!conn->tls_legacy_ssl) {
         found = resolver_srv_lookup(conn->ctx, "xmpp-client", "tcp", domain,
                                     &srv_rr_list);
     }
 
     if (XMPP_DOMAIN_NOT_FOUND == found) {
-        xmpp_debug(conn->ctx, "xmpp", "SRV lookup failed, "
-                                      "connecting via domain.");
+        xmpp_debug(conn->ctx, "xmpp",
+                   "SRV lookup failed, "
+                   "connecting via domain.");
         host = domain;
         port = altport ? altport : _conn_default_port(conn, XMPP_CLIENT);
         found = XMPP_DOMAIN_ALTDOMAIN;
@@ -485,8 +508,8 @@ int xmpp_connect_client(xmpp_conn_t * const conn,
             port = rr->port;
             rr = rr->next;
         }
-        rc = _conn_connect(conn, domain, host, port, XMPP_CLIENT,
-                           callback, userdata);
+        rc = _conn_connect(conn, domain, host, port, XMPP_CLIENT, callback,
+                           userdata);
     } while (rc != 0 && rr != NULL);
 
     xmpp_free(conn->ctx, domain);
@@ -518,18 +541,22 @@ int xmpp_connect_client(xmpp_conn_t * const conn,
  *
  *  @ingroup Connections
  */
-int xmpp_connect_component(xmpp_conn_t * const conn, const char * const server,
-                           unsigned short port, xmpp_conn_handler callback,
-                           void * const userdata)
+int xmpp_connect_component(xmpp_conn_t *const conn,
+                           const char *const server,
+                           unsigned short port,
+                           xmpp_conn_handler callback,
+                           void *const userdata)
 {
     /*  The server domain, jid and password MUST be specified. */
-    if (!(server && conn->jid && conn->pass)) return XMPP_EINVOP;
+    if (!(server && conn->jid && conn->pass))
+        return XMPP_EINVOP;
 
     /* XEP-0114 does not support TLS */
     xmpp_conn_disable_tls(conn);
     if (!conn->tls_disabled) {
-        xmpp_error(conn->ctx, "conn", "Failed to disable TLS. "
-                                      "XEP-0114 does not support TLS");
+        xmpp_error(conn->ctx, "conn",
+                   "Failed to disable TLS. "
+                   "XEP-0114 does not support TLS");
         return XMPP_EINT;
     }
 
@@ -561,18 +588,18 @@ int xmpp_connect_component(xmpp_conn_t * const conn, const char * const server,
  *
  *  @ingroup Connections
  */
-int xmpp_connect_raw(xmpp_conn_t * const conn,
-                     const char * const altdomain,
+int xmpp_connect_raw(xmpp_conn_t *const conn,
+                     const char *const altdomain,
                      unsigned short altport,
                      xmpp_conn_handler callback,
-                     void * const userdata)
+                     void *const userdata)
 {
     conn->is_raw = 1;
     return xmpp_connect_client(conn, altdomain, altport, callback, userdata);
 }
 
 /* Called when tcp connection is established. */
-void conn_established(xmpp_conn_t * const conn)
+void conn_established(xmpp_conn_t *const conn)
 {
     if (conn->tls_legacy_ssl && !conn->is_raw) {
         xmpp_debug(conn->ctx, "xmpp", "using legacy SSL connection");
@@ -587,7 +614,8 @@ void conn_established(xmpp_conn_t * const conn)
         /* we skip authentication for a "raw" connection, but the event loop
            ignores user's handlers when conn->authenticated is not set. */
         conn->authenticated = 1;
-        conn->conn_handler(conn, XMPP_CONN_RAW_CONNECT, 0, NULL, conn->userdata);
+        conn->conn_handler(conn, XMPP_CONN_RAW_CONNECT, 0, NULL,
+                           conn->userdata);
     } else {
         /* send stream init */
         conn_open_stream(conn);
@@ -605,7 +633,7 @@ void conn_established(xmpp_conn_t * const conn)
  *
  *  @ingroup Connections
  */
-int xmpp_conn_open_stream_default(xmpp_conn_t * const conn)
+int xmpp_conn_open_stream_default(xmpp_conn_t *const conn)
 {
     if (!conn->is_raw)
         return XMPP_EINVOP;
@@ -632,7 +660,8 @@ int xmpp_conn_open_stream_default(xmpp_conn_t * const conn)
  *
  *  @ingroup Connections
  */
-int xmpp_conn_open_stream(xmpp_conn_t * const conn, char **attributes,
+int xmpp_conn_open_stream(xmpp_conn_t *const conn,
+                          char **attributes,
                           size_t attributes_len)
 {
     char *tag;
@@ -657,7 +686,7 @@ int xmpp_conn_open_stream(xmpp_conn_t * const conn, char **attributes,
  *
  *  @ingroup Connections
  */
-int xmpp_conn_tls_start(xmpp_conn_t * const conn)
+int xmpp_conn_tls_start(xmpp_conn_t *const conn)
 {
     return conn_tls_start(conn);
 }
@@ -668,7 +697,7 @@ int xmpp_conn_tls_start(xmpp_conn_t * const conn)
  *
  *  @param conn a Strophe connection object
  */
-void conn_disconnect_clean(xmpp_conn_t * const conn)
+void conn_disconnect_clean(xmpp_conn_t *const conn)
 {
     /* remove the timed handler */
     xmpp_timed_handler_delete(conn, _disconnect_cleanup);
@@ -682,7 +711,7 @@ void conn_disconnect_clean(xmpp_conn_t * const conn)
  *
  *  @param conn a Strophe connection object
  */
-void conn_disconnect(xmpp_conn_t * const conn) 
+void conn_disconnect(xmpp_conn_t *const conn)
 {
     xmpp_debug(conn->ctx, "xmpp", "Closing socket.");
     conn->state = XMPP_STATE_DISCONNECTED;
@@ -700,14 +729,14 @@ void conn_disconnect(xmpp_conn_t * const conn)
 
 /* prepares a parser reset.  this is called from handlers. we can't
  * reset the parser immediately as it is not re-entrant. */
-void conn_prepare_reset(xmpp_conn_t * const conn, xmpp_open_handler handler)
+void conn_prepare_reset(xmpp_conn_t *const conn, xmpp_open_handler handler)
 {
     conn->reset_parser = 1;
     conn->open_handler = handler;
 }
 
 /* reset the parser */
-void conn_parser_reset(xmpp_conn_t * const conn)
+void conn_parser_reset(xmpp_conn_t *const conn)
 {
     conn->reset_parser = 0;
     parser_reset(conn->parser);
@@ -722,7 +751,7 @@ void conn_parser_reset(xmpp_conn_t * const conn)
  *
  *  @ingroup Connections
  */
-void xmpp_disconnect(xmpp_conn_t * const conn)
+void xmpp_disconnect(xmpp_conn_t *const conn)
 {
     if (conn->state != XMPP_STATE_CONNECTING &&
         conn->state != XMPP_STATE_CONNECTED)
@@ -732,8 +761,7 @@ void xmpp_disconnect(xmpp_conn_t * const conn)
     xmpp_send_raw_string(conn, "</stream:stream>");
 
     /* setup timed handler in case disconnect takes too long */
-    handler_add_timed(conn, _disconnect_cleanup,
-                      DISCONNECT_TIMEOUT, NULL);
+    handler_add_timed(conn, _disconnect_cleanup, DISCONNECT_TIMEOUT, NULL);
 }
 
 /** Send a raw string to the XMPP server.
@@ -749,8 +777,7 @@ void xmpp_disconnect(xmpp_conn_t * const conn)
  *
  *  @ingroup Connections
  */
-void xmpp_send_raw_string(xmpp_conn_t * const conn,
-                          const char * const fmt, ...)
+void xmpp_send_raw_string(xmpp_conn_t *const conn, const char *const fmt, ...)
 {
     va_list ap;
     size_t len;
@@ -758,16 +785,17 @@ void xmpp_send_raw_string(xmpp_conn_t * const conn,
     char *bigbuf;
 
     va_start(ap, fmt);
-    len = xmpp_vsnprintf(buf, 1024, fmt, ap);
+    len = xmpp_vsnprintf(buf, sizeof(buf), fmt, ap);
     va_end(ap);
 
-    if (len >= 1024) {
+    if (len >= sizeof(buf)) {
         /* we need more space for this data, so we allocate a big
          * enough buffer and print to that */
         len++; /* account for trailing \0 */
         bigbuf = xmpp_alloc(conn->ctx, len);
         if (!bigbuf) {
-            xmpp_debug(conn->ctx, "xmpp", "Could not allocate memory for send_raw_string");
+            xmpp_debug(conn->ctx, "xmpp",
+                       "Could not allocate memory for send_raw_string");
             return;
         }
         va_start(ap, fmt);
@@ -782,7 +810,6 @@ void xmpp_send_raw_string(xmpp_conn_t * const conn,
         xmpp_free(conn->ctx, bigbuf);
     } else {
         xmpp_debug(conn->ctx, "conn", "SENT: %s", buf);
-
         xmpp_send_raw(conn, buf, len);
     }
 }
@@ -799,16 +826,19 @@ void xmpp_send_raw_string(xmpp_conn_t * const conn,
  *
  *  @ingroup Connections
  */
-void xmpp_send_raw(xmpp_conn_t * const conn,
-                   const char * const data, const size_t len)
+void xmpp_send_raw(xmpp_conn_t *const conn,
+                   const char *const data,
+                   const size_t len)
 {
     xmpp_send_queue_t *item;
 
-    if (conn->state != XMPP_STATE_CONNECTED) return;
+    if (conn->state != XMPP_STATE_CONNECTED)
+        return;
 
     /* create send queue item for queue */
     item = xmpp_alloc(conn->ctx, sizeof(xmpp_send_queue_t));
-    if (!item) return;
+    if (!item)
+        return;
 
     item->data = xmpp_alloc(conn->ctx, len);
     if (!item->data) {
@@ -842,8 +872,7 @@ void xmpp_send_raw(xmpp_conn_t * const conn,
  *
  *  @ingroup Connections
  */
-void xmpp_send(xmpp_conn_t * const conn,
-               xmpp_stanza_t * const stanza)
+void xmpp_send(xmpp_conn_t *const conn, xmpp_stanza_t *const stanza)
 {
     char *buf;
     size_t len;
@@ -863,23 +892,22 @@ void xmpp_send(xmpp_conn_t * const conn,
  *
  *  @param conn a Strophe connection object
  */
-void conn_open_stream(xmpp_conn_t * const conn)
+void conn_open_stream(xmpp_conn_t *const conn)
 {
     xmpp_send_raw_string(conn,
-                         "<?xml version=\"1.0\"?>"                     \
-                         "<stream:stream to=\"%s\" "                   \
-                         "xml:lang=\"%s\" "                            \
-                         "version=\"1.0\" "                            \
-                         "xmlns=\"%s\" "                               \
+                         "<?xml version=\"1.0\"?>"
+                         "<stream:stream to=\"%s\" "
+                         "xml:lang=\"%s\" "
+                         "version=\"1.0\" "
+                         "xmlns=\"%s\" "
                          "xmlns:stream=\"%s\">",
-                         conn->domain,
-                         conn->lang,
-                         conn->type == XMPP_CLIENT ? XMPP_NS_CLIENT :
-                                                     XMPP_NS_COMPONENT,
+                         conn->domain, conn->lang,
+                         conn->type == XMPP_CLIENT ? XMPP_NS_CLIENT
+                                                   : XMPP_NS_COMPONENT,
                          XMPP_NS_STREAMS);
 }
 
-int conn_tls_start(xmpp_conn_t * const conn)
+int conn_tls_start(xmpp_conn_t *const conn)
 {
     int rc;
 
@@ -903,8 +931,10 @@ int conn_tls_start(xmpp_conn_t * const conn)
         }
     }
     if (rc != 0) {
-        xmpp_debug(conn->ctx, "conn", "Couldn't start TLS! "
-                   "error %d tls_error %d", rc, conn->error);
+        xmpp_debug(conn->ctx, "conn",
+                   "Couldn't start TLS! "
+                   "error %d tls_error %d",
+                   rc, conn->error);
     }
     return rc;
 }
@@ -917,14 +947,15 @@ int conn_tls_start(xmpp_conn_t * const conn)
  *
  *  @ingroup Connections
  */
-long xmpp_conn_get_flags(const xmpp_conn_t * const conn)
+long xmpp_conn_get_flags(const xmpp_conn_t *const conn)
 {
     long flags;
 
     flags = XMPP_CONN_FLAG_DISABLE_TLS * conn->tls_disabled |
             XMPP_CONN_FLAG_MANDATORY_TLS * conn->tls_mandatory |
             XMPP_CONN_FLAG_LEGACY_SSL * conn->tls_legacy_ssl |
-            XMPP_CONN_FLAG_TRUST_TLS * conn->tls_trust;
+            XMPP_CONN_FLAG_TRUST_TLS * conn->tls_trust |
+            XMPP_CONN_FLAG_LEGACY_AUTH * conn->auth_legacy_enabled;
 
     return flags;
 }
@@ -942,6 +973,7 @@ long xmpp_conn_get_flags(const xmpp_conn_t * const conn)
  *    - XMPP_CONN_FLAG_MANDATORY_TLS
  *    - XMPP_CONN_FLAG_LEGACY_SSL
  *    - XMPP_CONN_FLAG_TRUST_TLS
+ *    - XMPP_CONN_FLAG_LEGACY_AUTH
  *
  *  @param conn a Strophe connection object
  *  @param flags ORed connection flags
@@ -950,11 +982,12 @@ long xmpp_conn_get_flags(const xmpp_conn_t * const conn)
  *
  *  @ingroup Connections
  */
-int xmpp_conn_set_flags(xmpp_conn_t * const conn, long flags)
+int xmpp_conn_set_flags(xmpp_conn_t *const conn, long flags)
 {
     if (conn->state != XMPP_STATE_DISCONNECTED) {
-        xmpp_error(conn->ctx, "conn", "Flags can be set only "
-                                      "for disconnected connection");
+        xmpp_error(conn->ctx, "conn",
+                   "Flags can be set only "
+                   "for disconnected connection");
         return XMPP_EINVOP;
     }
     if (flags & XMPP_CONN_FLAG_DISABLE_TLS &&
@@ -968,6 +1001,7 @@ int xmpp_conn_set_flags(xmpp_conn_t * const conn, long flags)
     conn->tls_mandatory = (flags & XMPP_CONN_FLAG_MANDATORY_TLS) ? 1 : 0;
     conn->tls_legacy_ssl = (flags & XMPP_CONN_FLAG_LEGACY_SSL) ? 1 : 0;
     conn->tls_trust = (flags & XMPP_CONN_FLAG_TRUST_TLS) ? 1 : 0;
+    conn->auth_legacy_enabled = (flags & XMPP_CONN_FLAG_LEGACY_AUTH) ? 1 : 0;
 
     return 0;
 }
@@ -983,7 +1017,7 @@ int xmpp_conn_set_flags(xmpp_conn_t * const conn, long flags)
  *
  *  @ingroup Connections
  */
-void xmpp_conn_disable_tls(xmpp_conn_t * const conn)
+void xmpp_conn_disable_tls(xmpp_conn_t *const conn)
 {
     long flags = xmpp_conn_get_flags(conn);
 
@@ -996,7 +1030,7 @@ void xmpp_conn_disable_tls(xmpp_conn_t * const conn)
  *  @param conn a Strophe connection object
  *  @param path a path to SSL certificate directory
  */
-void xmpp_conn_sslcert_path(xmpp_conn_t * const conn, char *path)
+void xmpp_conn_set_ssl_cert_path(xmpp_conn_t *const conn, char *path)
 {
     conn->ssl_cert_path = xmpp_strdup(conn->ctx, path);
 }
@@ -1007,25 +1041,56 @@ void xmpp_conn_sslcert_path(xmpp_conn_t * const conn, char *path)
  *
  *  @ingroup Connections
  */
-int xmpp_conn_is_secured(xmpp_conn_t * const conn)
+int xmpp_conn_is_secured(xmpp_conn_t *const conn)
 {
-    return conn->secured && !conn->tls_failed && conn->tls != NULL ? 1 : 0;
+    return conn->secured && !conn->tls_failed && conn->tls != NULL;
+}
+
+/**
+ *  @return TRUE if connection is in connecting state and FALSE otherwise
+ *
+ *  @ingroup Connections
+ */
+int xmpp_conn_is_connecting(xmpp_conn_t *const conn)
+{
+    return conn->state == XMPP_STATE_CONNECTING;
+}
+
+/**
+ *  @return TRUE if connection is in connected state and FALSE otherwise
+ *
+ *  @ingroup Connections
+ */
+int xmpp_conn_is_connected(xmpp_conn_t *const conn)
+{
+    return conn->state == XMPP_STATE_CONNECTED;
+}
+
+/**
+ *  @return TRUE if connection is in disconnected state and FALSE otherwise
+ *
+ *  @ingroup Connections
+ */
+int xmpp_conn_is_disconnected(xmpp_conn_t *const conn)
+{
+    return conn->state == XMPP_STATE_DISCONNECTED;
 }
 
 /* timed handler for cleanup if normal disconnect procedure takes too long */
-static int _disconnect_cleanup(xmpp_conn_t * const conn,
-                               void * const userdata)
+static int _disconnect_cleanup(xmpp_conn_t *const conn, void *const userdata)
 {
-    xmpp_debug(conn->ctx, "xmpp",
-               "disconnection forced by cleanup timeout");
+    UNUSED(userdata);
+
+    xmpp_debug(conn->ctx, "xmpp", "disconnection forced by cleanup timeout");
 
     conn_disconnect(conn);
 
     return 0;
 }
 
-static char *_conn_build_stream_tag(xmpp_conn_t * const conn,
-                                    char **attributes, size_t attributes_len)
+static char *_conn_build_stream_tag(xmpp_conn_t *const conn,
+                                    char **attributes,
+                                    size_t attributes_len)
 {
     char *tag;
     size_t len;
@@ -1041,7 +1106,8 @@ static char *_conn_build_stream_tag(xmpp_conn_t * const conn,
     for (i = 0; i < attributes_len; ++i)
         len += strlen(attributes[i]) + 2;
     tag = xmpp_alloc(conn->ctx, len + 1);
-    if (!tag) return NULL;
+    if (!tag)
+        return NULL;
 
     strcpy(tag, tag_head);
     for (i = 0; i < attributes_len; ++i) {
@@ -1057,8 +1123,9 @@ static char *_conn_build_stream_tag(xmpp_conn_t * const conn,
     strcat(tag, tag_tail);
 
     if (strlen(tag) != len) {
-        xmpp_error(conn->ctx, "xmpp", "Internal error in "
-                              "_conn_build_stream_tag().");
+        xmpp_error(conn->ctx, "xmpp",
+                   "Internal error in "
+                   "_conn_build_stream_tag().");
         xmpp_free(conn->ctx, tag);
         tag = NULL;
     }
@@ -1066,20 +1133,24 @@ static char *_conn_build_stream_tag(xmpp_conn_t * const conn,
     return tag;
 }
 
-static void _conn_attributes_new(xmpp_conn_t *conn, char **attrs,
-                                 char ***attributes, size_t *attributes_len)
+static void _conn_attributes_new(xmpp_conn_t *conn,
+                                 char **attrs,
+                                 char ***attributes,
+                                 size_t *attributes_len)
 {
     char **array = NULL;
     size_t nr = 0;
     size_t i;
 
     if (attrs) {
-        for (; attrs[nr]; ++nr);
+        for (; attrs[nr]; ++nr)
+            ;
         array = xmpp_alloc(conn->ctx, sizeof(*array) * nr);
         for (i = 0; array && i < nr; ++i) {
             array[i] = (i & 1) == 0 ? parser_attr_name(conn->ctx, attrs[i])
                                     : xmpp_strdup(conn->ctx, attrs[i]);
-            if (array[i] == NULL) break;
+            if (array[i] == NULL)
+                break;
         }
         if (!array || i < nr) {
             xmpp_error(conn->ctx, "xmpp", "Memory allocation error.");
@@ -1092,7 +1163,8 @@ static void _conn_attributes_new(xmpp_conn_t *conn, char **attrs,
     *attributes_len = nr;
 }
 
-static void _conn_attributes_destroy(xmpp_conn_t *conn, char **attributes,
+static void _conn_attributes_destroy(xmpp_conn_t *conn,
+                                     char **attributes,
                                      size_t attributes_len)
 {
     size_t i;
@@ -1123,23 +1195,24 @@ static char *_get_stream_attribute(char **attrs, char *name)
 {
     int i;
 
-    if (!attrs) return NULL;
+    if (!attrs)
+        return NULL;
 
     for (i = 0; attrs[i]; i += 2)
         if (strcmp(name, attrs[i]) == 0)
-            return attrs[i+1];
+            return attrs[i + 1];
 
     return NULL;
 }
 
-static void _handle_stream_start(char *name, char **attrs,
-                                 void * const userdata)
+static void _handle_stream_start(char *name, char **attrs, void *const userdata)
 {
     xmpp_conn_t *conn = (xmpp_conn_t *)userdata;
     char *id;
     int failed = 0;
 
-    if (conn->stream_id) xmpp_free(conn->ctx, conn->stream_id);
+    if (conn->stream_id)
+        xmpp_free(conn->ctx, conn->stream_id);
     conn->stream_id = NULL;
 
     if (strcmp(name, "stream") == 0) {
@@ -1153,8 +1226,10 @@ static void _handle_stream_start(char *name, char **attrs,
             failed = 1;
         }
     } else {
-        xmpp_error(conn->ctx, "conn", "Server did not open valid stream."
-                                      " name = %s.", name);
+        xmpp_error(conn->ctx, "conn",
+                   "Server did not open valid stream."
+                   " name = %s.",
+                   name);
         failed = 1;
     }
 
@@ -1166,18 +1241,18 @@ static void _handle_stream_start(char *name, char **attrs,
     }
 }
 
-static void _handle_stream_end(char *name,
-                               void * const userdata)
+static void _handle_stream_end(char *name, void *const userdata)
 {
     xmpp_conn_t *conn = (xmpp_conn_t *)userdata;
+
+    UNUSED(name);
 
     /* stream is over */
     xmpp_debug(conn->ctx, "xmpp", "RECV: </stream:stream>");
     conn_disconnect_clean(conn);
 }
 
-static void _handle_stream_stanza(xmpp_stanza_t *stanza,
-                                  void * const userdata)
+static void _handle_stream_stanza(xmpp_stanza_t *stanza, void *const userdata)
 {
     xmpp_conn_t *conn = (xmpp_conn_t *)userdata;
     char *buf;
@@ -1191,13 +1266,13 @@ static void _handle_stream_stanza(xmpp_stanza_t *stanza,
     handler_fire_stanza(conn, stanza);
 }
 
-static unsigned short _conn_default_port(xmpp_conn_t * const conn,
+static unsigned short _conn_default_port(xmpp_conn_t *const conn,
                                          xmpp_conn_type_t type)
 {
     switch (type) {
     case XMPP_CLIENT:
-        return conn->tls_legacy_ssl ? XMPP_PORT_CLIENT_LEGACY_SSL :
-                                      XMPP_PORT_CLIENT;
+        return conn->tls_legacy_ssl ? XMPP_PORT_CLIENT_LEGACY_SSL
+                                    : XMPP_PORT_CLIENT;
     case XMPP_COMPONENT:
         return XMPP_PORT_COMPONENT;
     default:
@@ -1205,7 +1280,7 @@ static unsigned short _conn_default_port(xmpp_conn_t * const conn,
     };
 }
 
-static void _conn_reset(xmpp_conn_t * const conn)
+static void _conn_reset(xmpp_conn_t *const conn)
 {
     xmpp_ctx_t *ctx = conn->ctx;
     xmpp_send_queue_t *sq, *tsq;
@@ -1235,9 +1310,12 @@ static void _conn_reset(xmpp_conn_t * const conn)
         conn->stream_error = NULL;
     }
 
-    if (conn->domain) xmpp_free(ctx, conn->domain);
-    if (conn->bound_jid) xmpp_free(ctx, conn->bound_jid);
-    if (conn->stream_id) xmpp_free(ctx, conn->stream_id);
+    if (conn->domain)
+        xmpp_free(ctx, conn->domain);
+    if (conn->bound_jid)
+        xmpp_free(ctx, conn->bound_jid);
+    if (conn->stream_id)
+        xmpp_free(ctx, conn->stream_id);
     conn->domain = NULL;
     conn->bound_jid = NULL;
     conn->stream_id = NULL;
@@ -1253,30 +1331,35 @@ static void _conn_reset(xmpp_conn_t * const conn)
     handler_system_delete_all(conn);
 }
 
-static int _conn_connect(xmpp_conn_t * const conn,
-                         const char * const domain,
-                         const char * const host,
+static int _conn_connect(xmpp_conn_t *const conn,
+                         const char *const domain,
+                         const char *const host,
                          unsigned short port,
                          xmpp_conn_type_t type,
                          xmpp_conn_handler callback,
-                         void * const userdata)
+                         void *const userdata)
 {
     xmpp_open_handler open_handler;
 
-    if (conn->state != XMPP_STATE_DISCONNECTED) return XMPP_EINVOP;
-    if (type != XMPP_CLIENT && type != XMPP_COMPONENT) return XMPP_EINVOP;
-    if (host == NULL || port == 0) return XMPP_EINT;
+    if (conn->state != XMPP_STATE_DISCONNECTED)
+        return XMPP_EINVOP;
+    if (type != XMPP_CLIENT && type != XMPP_COMPONENT)
+        return XMPP_EINVOP;
+    if (host == NULL || port == 0)
+        return XMPP_EINT;
 
     _conn_reset(conn);
 
     conn->type = type;
     conn->domain = xmpp_strdup(conn->ctx, domain);
-    if (!conn->domain) return XMPP_EMEM;
+    if (!conn->domain)
+        return XMPP_EMEM;
 
     conn->sock = sock_connect(host, port);
-    xmpp_debug(conn->ctx, "xmpp", "sock_connect() to %s:%u returned %d",
-               host, port, conn->sock);
-    if (conn->sock == -1) return XMPP_EINT;
+    xmpp_debug(conn->ctx, "xmpp", "sock_connect() to %s:%u returned %d", host,
+               port, conn->sock);
+    if (conn->sock == -1)
+        return XMPP_EINT;
     if (conn->ka_timeout || conn->ka_interval)
         sock_set_keepalive(conn->sock, conn->ka_timeout, conn->ka_interval);
 
@@ -1284,9 +1367,10 @@ static int _conn_connect(xmpp_conn_t * const conn,
     conn->conn_handler = callback;
     conn->userdata = userdata;
 
-    open_handler = conn->is_raw ? auth_handle_open_stub :
-                   type == XMPP_CLIENT ? auth_handle_open :
-                                         auth_handle_component_open;
+    open_handler = conn->is_raw
+                       ? auth_handle_open_stub
+                       : type == XMPP_CLIENT ? auth_handle_open
+                                             : auth_handle_component_open;
     conn_prepare_reset(conn, open_handler);
 
     /* FIXME: it could happen that the connect returns immediately as

@@ -1,4 +1,5 @@
 *.swp
+*.orig
 Makefile
 test-driver
 .libs
@@ -34,6 +35,7 @@ examples/active
 examples/basic
 examples/bot
 examples/component
+examples/register
 examples/roster
 examples/uuid
 examples/vcard
@@ -53,11 +55,17 @@ tests/test_resolver
 tests/test_sasl
 tests/test_scram
 tests/test_sha1
+tests/test_sha256
+tests/test_sha512
 tests/test_snprintf
-tests/test_string
 tests/test_sock
+tests/test_stanza
+tests/test_string
 m4/
 libstrophe.project
 libs/
 obj/
 expat/
+.settings/
+.project
+.cproject

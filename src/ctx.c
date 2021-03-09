@@ -47,11 +47,13 @@
 
 #include "strophe.h"
 #include "common.h"
+#include "resolver.h"
 #include "util.h"
 
-/* Workaround for visual studio without va_copy support. */
-#if defined(_MSC_VER) && _MSC_VER < 1800
-#define va_copy(d,s) ((d) = (s))
+/* Workaround for systems without va_copy support. */
+#if defined(_MSC_VER) && _MSC_VER < 1800 || \
+    !defined(_MSC_VER) && !defined(HAVE_DECL_VA_COPY)
+#define va_copy(d, s) (memcpy(&d, &s, sizeof(va_list)))
 #endif
 
 /** Initialize the Strophe library.
@@ -60,9 +62,10 @@
  *
  *  @ingroup Init
  */
- void xmpp_initialize(void)
+void xmpp_initialize(void)
 {
     sock_initialize();
+    resolver_initialize();
     tls_initialize();
 }
 
@@ -73,6 +76,7 @@
 void xmpp_shutdown(void)
 {
     tls_shutdown();
+    resolver_shutdown();
     sock_shutdown();
 }
 
@@ -110,44 +114,42 @@ void xmpp_shutdown(void)
  */
 int xmpp_version_check(int major, int minor)
 {
-    return (major == LIBXMPP_VERSION_MAJOR) &&
-           (minor >= LIBXMPP_VERSION_MINOR);
+    return (major == LIBXMPP_VERSION_MAJOR) && (minor >= LIBXMPP_VERSION_MINOR);
 }
 
 /* We define the global default allocator, logger, and context here. */
 
 /* Wrap stdlib routines malloc, free, and realloc for default memory
- * management. 
+ * management.
  */
-static void *_malloc(const size_t size, void * const userdata)
+static void *_malloc(const size_t size, void *const userdata)
 {
+    UNUSED(userdata);
     return malloc(size);
 }
 
-static void _free(void *p, void * const userdata)
+static void _free(void *p, void *const userdata)
 {
+    UNUSED(userdata);
     free(p);
 }
 
-static void *_realloc(void *p, const size_t size, void * const userdata)
+static void *_realloc(void *p, const size_t size, void *const userdata)
 {
+    UNUSED(userdata);
     return realloc(p, size);
 }
 
 /* default memory function map */
 static xmpp_mem_t xmpp_default_mem = {
     _malloc, /* use the thinly wrapped stdlib routines by default */
-    _free,
-    _realloc,
-    NULL
-};
+    _free, _realloc, NULL};
 
 /* log levels and names */
-static const char * const _xmpp_log_level_name[4] = {"DEBUG", "INFO", "WARN", "ERROR"};
-static const xmpp_log_level_t _xmpp_default_logger_levels[] = {XMPP_LEVEL_DEBUG,
-                                                               XMPP_LEVEL_INFO,
-                                                               XMPP_LEVEL_WARN,
-                                                               XMPP_LEVEL_ERROR};
+static const char *const _xmpp_log_level_name[4] = {"DEBUG", "INFO", "WARN",
+                                                    "ERROR"};
+static const xmpp_log_level_t _xmpp_default_logger_levels[] = {
+    XMPP_LEVEL_DEBUG, XMPP_LEVEL_INFO, XMPP_LEVEL_WARN, XMPP_LEVEL_ERROR};
 
 /** Log a message.
  *  The default logger writes to stderr.
@@ -158,22 +160,25 @@ static const xmpp_log_level_t _xmpp_default_logger_levels[] = {XMPP_LEVEL_DEBUG,
  *  @param area the area the log message is for
  *  @param msg the log message
  */
-static void xmpp_default_logger(void * const userdata,
-                         const xmpp_log_level_t level,
-                         const char * const area,
-                         const char * const msg)
+static void xmpp_default_logger(void *const userdata,
+                                const xmpp_log_level_t level,
+                                const char *const area,
+                                const char *const msg)
 {
-    xmpp_log_level_t filter_level = * (xmpp_log_level_t*)userdata;
+    xmpp_log_level_t filter_level = *(xmpp_log_level_t *)userdata;
     if (level >= filter_level)
         fprintf(stderr, "%s %s %s\n", area, _xmpp_log_level_name[level], msg);
 }
 
 static const xmpp_log_t _xmpp_default_loggers[] = {
-        {&xmpp_default_logger, (void*)&_xmpp_default_logger_levels[XMPP_LEVEL_DEBUG]},
-        {&xmpp_default_logger, (void*)&_xmpp_default_logger_levels[XMPP_LEVEL_INFO]},
-        {&xmpp_default_logger, (void*)&_xmpp_default_logger_levels[XMPP_LEVEL_WARN]},
-        {&xmpp_default_logger, (void*)&_xmpp_default_logger_levels[XMPP_LEVEL_ERROR]}
-};
+    {&xmpp_default_logger,
+     (void *)&_xmpp_default_logger_levels[XMPP_LEVEL_DEBUG]},
+    {&xmpp_default_logger,
+     (void *)&_xmpp_default_logger_levels[XMPP_LEVEL_INFO]},
+    {&xmpp_default_logger,
+     (void *)&_xmpp_default_logger_levels[XMPP_LEVEL_WARN]},
+    {&xmpp_default_logger,
+     (void *)&_xmpp_default_logger_levels[XMPP_LEVEL_ERROR]}};
 
 /** Get a default logger with filtering.
  *  The default logger provides a basic logging setup which writes log
@@ -189,12 +194,13 @@ static const xmpp_log_t _xmpp_default_loggers[] = {
 xmpp_log_t *xmpp_get_default_logger(xmpp_log_level_t level)
 {
     /* clamp to the known range */
-    if (level > XMPP_LEVEL_ERROR) level = XMPP_LEVEL_ERROR;
+    if (level > XMPP_LEVEL_ERROR)
+        level = XMPP_LEVEL_ERROR;
 
-    return (xmpp_log_t*)&_xmpp_default_loggers[level];
+    return (xmpp_log_t *)&_xmpp_default_loggers[level];
 }
 
-static xmpp_log_t xmpp_default_log = { NULL, NULL };
+static xmpp_log_t xmpp_default_log = {NULL, NULL};
 
 /* convenience functions for accessing the context */
 
@@ -206,7 +212,7 @@ static xmpp_log_t xmpp_default_log = { NULL, NULL };
  *
  *  @return a pointer to the allocated memory or NULL on an error
  */
-void *xmpp_alloc(const xmpp_ctx_t * const ctx, const size_t size)
+void *xmpp_alloc(const xmpp_ctx_t *const ctx, const size_t size)
 {
     return ctx->mem->alloc(size, ctx->mem->userdata);
 }
@@ -217,7 +223,7 @@ void *xmpp_alloc(const xmpp_ctx_t * const ctx, const size_t size)
  *  @param ctx a Strophe context object
  *  @param p a pointer referencing memory to be freed
  */
-void xmpp_free(const xmpp_ctx_t * const ctx, void *p)
+void xmpp_free(const xmpp_ctx_t *const ctx, void *p)
 {
     ctx->mem->free(p, ctx->mem->userdata);
 }
@@ -231,8 +237,7 @@ void xmpp_free(const xmpp_ctx_t * const ctx, void *p)
  *
  *  @return a pointer to the reallocated memory or NULL on an error
  */
-void *xmpp_realloc(const xmpp_ctx_t * const ctx, void *p,
-                   const size_t size)
+void *xmpp_realloc(const xmpp_ctx_t *const ctx, void *p, const size_t size)
 {
     return ctx->mem->realloc(p, size, ctx->mem->userdata);
 }
@@ -250,10 +255,10 @@ void *xmpp_realloc(const xmpp_ctx_t * const ctx, void *p,
  *  @param fmt a printf-style format string for the message
  *  @param ap variable argument list supplied for the format string
  */
-void xmpp_log(const xmpp_ctx_t * const ctx,
+void xmpp_log(const xmpp_ctx_t *const ctx,
               const xmpp_log_level_t level,
-              const char * const area,
-              const char * const fmt,
+              const char *const area,
+              const char *const fmt,
               va_list ap)
 {
     int oldret, ret;
@@ -301,9 +306,9 @@ void xmpp_log(const xmpp_ctx_t * const ctx,
  *  @param fmt a printf-style format string followed by a variable list of
  *      arguments to format
  */
-void xmpp_error(const xmpp_ctx_t * const ctx,
-                const char * const area,
-                const char * const fmt,
+void xmpp_error(const xmpp_ctx_t *const ctx,
+                const char *const area,
+                const char *const fmt,
                 ...)
 {
     va_list ap;
@@ -323,10 +328,10 @@ void xmpp_error(const xmpp_ctx_t * const ctx,
  *  @param fmt a printf-style format string followed by a variable list of
  *      arguments to format
  */
-void xmpp_warn(const xmpp_ctx_t * const ctx,
-                const char * const area,
-                const char * const fmt,
-                ...)
+void xmpp_warn(const xmpp_ctx_t *const ctx,
+               const char *const area,
+               const char *const fmt,
+               ...)
 {
     va_list ap;
 
@@ -345,10 +350,10 @@ void xmpp_warn(const xmpp_ctx_t * const ctx,
  *  @param fmt a printf-style format string followed by a variable list of
  *      arguments to format
  */
-void xmpp_info(const xmpp_ctx_t * const ctx,
-                const char * const area,
-                const char * const fmt,
-                ...)
+void xmpp_info(const xmpp_ctx_t *const ctx,
+               const char *const area,
+               const char *const fmt,
+               ...)
 {
     va_list ap;
 
@@ -367,9 +372,9 @@ void xmpp_info(const xmpp_ctx_t * const ctx,
  *  @param fmt a printf-style format string followed by a variable list of
  *      arguments to format
  */
-void xmpp_debug(const xmpp_ctx_t * const ctx,
-                const char * const area,
-                const char * const fmt,
+void xmpp_debug(const xmpp_ctx_t *const ctx,
+                const char *const area,
+                const char *const fmt,
                 ...)
 {
     va_list ap;
@@ -393,8 +398,8 @@ void xmpp_debug(const xmpp_ctx_t * const ctx,
  *
  *  @ingroup Context
  */
-xmpp_ctx_t *xmpp_ctx_new(const xmpp_mem_t * const mem,
-                         const xmpp_log_t * const log)
+xmpp_ctx_t *xmpp_ctx_new(const xmpp_mem_t *const mem,
+                         const xmpp_log_t *const log)
 {
     xmpp_ctx_t *ctx = NULL;
 
@@ -415,6 +420,7 @@ xmpp_ctx_t *xmpp_ctx_new(const xmpp_mem_t * const mem,
             ctx->log = log;
 
         ctx->connlist = NULL;
+        ctx->timed_handlers = NULL;
         ctx->loop_status = XMPP_LOOP_NOTSTARTED;
         ctx->rand = xmpp_rand_new(ctx);
         ctx->timeout = EVENT_LOOP_DEFAULT_TIMEOUT;
@@ -433,7 +439,7 @@ xmpp_ctx_t *xmpp_ctx_new(const xmpp_mem_t * const mem,
  *
  *  @ingroup Context
  */
-void xmpp_ctx_free(xmpp_ctx_t * const ctx)
+void xmpp_ctx_free(xmpp_ctx_t *const ctx)
 {
     /* mem and log are owned by their suppliers */
     xmpp_rand_free(ctx, ctx->rand);
@@ -447,7 +453,7 @@ void xmpp_ctx_free(xmpp_ctx_t * const ctx)
  *
  *  @ingroup Context
  */
-void xmpp_ctx_set_timeout(xmpp_ctx_t * const ctx, const unsigned long timeout)
+void xmpp_ctx_set_timeout(xmpp_ctx_t *const ctx, const unsigned long timeout)
 {
     ctx->timeout = timeout;
 }

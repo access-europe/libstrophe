@@ -1,7 +1,7 @@
 /* sock.c
 ** strophe XMPP client library -- socket abstraction implementation
 **
-** Copyright (C) 2005-2009 Collecta, Inc. 
+** Copyright (C) 2005-2009 Collecta, Inc.
 **
 **  This software is provided AS-IS with no warranty, either express
 **  or implied.
@@ -21,8 +21,8 @@
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
-#include <Iphlpapi.h>
-#include <Mstcpip.h>    /* tcp_keepalive */
+#include <iphlpapi.h>
+#include <mstcpip.h> /* tcp_keepalive */
 #else
 #include <errno.h>
 #include <unistd.h>
@@ -69,7 +69,7 @@ static int _in_progress(int error)
 #endif
 }
 
-sock_t sock_connect(const char * const host, const unsigned short port)
+sock_t sock_connect(const char *const host, const unsigned short port)
 {
     sock_t sock;
     char service[6];
@@ -123,7 +123,8 @@ int sock_set_keepalive(const sock_t sock, int timeout, int interval)
     ka.onoff = optval;
     ka.keepalivetime = timeout * 1000;
     ka.keepaliveinterval = interval * 1000;
-    ret = WSAIoctl(sock, SIO_KEEPALIVE_VALS, &ka, sizeof(ka), NULL, 0, &dw, NULL, NULL);
+    ret = WSAIoctl(sock, SIO_KEEPALIVE_VALS, &ka, sizeof(ka), NULL, 0, &dw,
+                   NULL, NULL);
 #else
     ret = setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &optval, sizeof(optval));
     if (ret < 0)
@@ -131,15 +132,19 @@ int sock_set_keepalive(const sock_t sock, int timeout, int interval)
 
     if (optval) {
 #ifdef TCP_KEEPIDLE
-        ret = setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, &timeout, sizeof(timeout));
+        ret = setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, &timeout,
+                         sizeof(timeout));
 #elif defined(TCP_KEEPALIVE)
-        /* QNX receives `struct timeval' as argument, but it seems OSX does int */
-        ret = setsockopt(sock, IPPROTO_TCP, TCP_KEEPALIVE, &timeout, sizeof(timeout));
+        /* QNX receives `struct timeval' as argument, but it seems OSX does int
+         */
+        ret = setsockopt(sock, IPPROTO_TCP, TCP_KEEPALIVE, &timeout,
+                         sizeof(timeout));
 #endif /* TCP_KEEPIDLE */
         if (ret < 0)
             return ret;
 #ifdef TCP_KEEPINTVL
-        ret = setsockopt(sock, IPPROTO_TCP, TCP_KEEPINTVL, &interval, sizeof(interval));
+        ret = setsockopt(sock, IPPROTO_TCP, TCP_KEEPINTVL, &interval,
+                         sizeof(interval));
         if (ret < 0)
             return ret;
 #endif /* TCP_KEEPINTVL */
@@ -158,44 +163,39 @@ int sock_close(const sock_t sock)
 #endif
 }
 
-int sock_set_blocking(const sock_t sock)
+static int _sock_set_blocking_mode(sock_t sock, int blocking)
 {
 #ifdef _WIN32
-    u_long block = 0;
-    return ioctlsocket(sock, FIONBIO, &block);
-#else
-    int rc;
-
-    rc = fcntl(sock, F_GETFL, NULL);
-    if (rc >= 0) {
-        rc = fcntl(sock, F_SETFL, rc & (~O_NONBLOCK));
-    }
-    return rc;
-#endif
-}
-
-int sock_set_nonblocking(const sock_t sock)
-{
-#ifdef _WIN32
-    u_long nonblock = 1;
+    u_long nonblock = blocking ? 0 : 1;
     return ioctlsocket(sock, FIONBIO, &nonblock);
 #else
     int rc;
 
     rc = fcntl(sock, F_GETFL, NULL);
     if (rc >= 0) {
-        rc = fcntl(sock, F_SETFL, rc | O_NONBLOCK);
+        rc = blocking ? rc & (~O_NONBLOCK) : rc | O_NONBLOCK;
+        rc = fcntl(sock, F_SETFL, rc);
     }
     return rc;
 #endif
 }
 
-int sock_read(const sock_t sock, void * const buff, const size_t len)
+int sock_set_blocking(const sock_t sock)
+{
+    return _sock_set_blocking_mode(sock, 1);
+}
+
+int sock_set_nonblocking(const sock_t sock)
+{
+    return _sock_set_blocking_mode(sock, 0);
+}
+
+int sock_read(const sock_t sock, void *const buff, const size_t len)
 {
     return recv(sock, buff, len, 0);
 }
 
-int sock_write(const sock_t sock, const void * const buff, const size_t len)
+int sock_write(const sock_t sock, const void *const buff, const size_t len)
 {
     return send(sock, buff, len, 0);
 }
@@ -203,7 +203,7 @@ int sock_write(const sock_t sock, const void * const buff, const size_t len)
 int sock_is_recoverable(const int error)
 {
 #ifdef _WIN32
-    return (error == WSAEINTR || error == WSAEWOULDBLOCK || 
+    return (error == WSAEINTR || error == WSAEWOULDBLOCK ||
             error == WSAEINPROGRESS);
 #else
     return (error == EAGAIN || error == EINTR);
@@ -212,27 +212,29 @@ int sock_is_recoverable(const int error)
 
 int sock_connect_error(const sock_t sock)
 {
-    struct sockaddr sa;
+    struct sockaddr_storage ss;
+    struct sockaddr *sa = (struct sockaddr *)&ss;
     socklen_t len;
     char temp;
 
-    memset(&sa, 0, sizeof(sa));
-    sa.sa_family = AF_UNSPEC;
-    len = sizeof(sa);
+    memset(&ss, 0, sizeof(ss));
+    len = sizeof(ss);
+    sa->sa_family = AF_UNSPEC;
 
     /* we don't actually care about the peer name, we're just checking if
      * we're connected or not */
-    if (getpeername(sock, &sa, &len) == 0)
-    {
+    if (getpeername(sock, sa, &len) == 0) {
         return 0;
     }
 
     /* it's possible that the error wasn't ENOTCONN, so if it wasn't,
      * return that */
 #ifdef _WIN32
-    if (sock_error() != WSAENOTCONN) return sock_error();
+    if (sock_error() != WSAENOTCONN)
+        return sock_error();
 #else
-    if (sock_error() != ENOTCONN) return sock_error();
+    if (sock_error() != ENOTCONN)
+        return sock_error();
 #endif
 
     /* load the correct error into errno through error slippage */

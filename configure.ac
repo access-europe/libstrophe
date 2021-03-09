@@ -1,4 +1,4 @@
-AC_INIT([libstrophe], [0.9.2], [jack@metajack.im])
+AC_INIT([libstrophe], [0.10.1], [jack@metajack.im])
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE([foreign])
 LT_INIT([dlopen])
@@ -15,12 +15,25 @@ AS_CASE([$host_os],
     [*nto*|*qnx*], [PLATFORM="qnx"],
     [*solaris*],   [PLATFORM="solaris"],
     [*android*],   [PLATFORM="android"],
+    [*haiku*],     [PLATFORM="haiku"],
                    [PLATFORM="nix"])
+
+WARNING_FLAGS="-Wall"
+
+AS_CASE([$PLATFORM],
+    [haiku],   [],
+               [WARNING_FLAGS="$WARNING_FLAGS -Wextra"])
 
 AC_ARG_WITH([libxml2],
     [AS_HELP_STRING([--with-libxml2], [use libxml2 for XML parsing, expat is the default])])
 AC_ARG_ENABLE([tls],
     [AS_HELP_STRING([--disable-tls], [disable TLS support])])
+AC_ARG_ENABLE([cares],
+    [AS_HELP_STRING([--enable-cares], [use c-ares for DNS resolution])])
+
+AC_SEARCH_LIBS([socket], [network socket])
+AC_CHECK_FUNCS([snprintf vsnprintf])
+AC_CHECK_DECLS([va_copy], [], [], [#include <stdarg.h>])
 
 if test "x$enable_tls" != xno; then
     PKG_CHECK_MODULES([openssl], [openssl],
@@ -62,7 +75,7 @@ if test "x$with_libxml2" != xno -a "x$with_parser" = x; then
                 [
                     with_parser="libxml2"
                     libxml2_CFLAGS="-I${includedir}/libxml2"
-                    libxml2_LIBS="-lxml2"
+                    libxml2_LIBS="-lxml2 -lm"
                     PC_LIBS="${libxml2_LIBS} ${PC_LIBS}"
                     PC_CFLAGS="${libxml2_CFLAGS} ${PC_CFLAGS}"
                 ])
@@ -82,13 +95,24 @@ fi
 
 AC_MSG_NOTICE([libstrophe will use the $with_parser XML parser])
 
-AC_SEARCH_LIBS([socket], [socket])
+if test "x$enable_cares" = xyes; then
+    PKG_CHECK_MODULES([libcares], [libcares >= 1.7.0],
+        [
+            PC_REQUIRES="libcares ${PC_REQUIRES}"
+            RESOLV_CFLAGS=$libcares_CFLAGS
+            RESOLV_LIBS=$libcares_LIBS
+            AC_DEFINE([HAVE_CARES])
+        ],
+        [AC_MSG_ERROR([libcares not found])])
+        # TODO: if pkg-config doesn't find, check the library manually
+else
 
 AS_CASE([$PLATFORM],
     [bsd],     [RESOLV_LIBS=""],
     [qnx],     [RESOLV_LIBS="-lsocket"],
     [solaris], [RESOLV_LIBS="-lresolv -lsocket -lnsl"],
     [android], [RESOLV_LIBS=""],
+    [haiku],   [RESOLV_LIBS="-lnetwork"],
                [RESOLV_LIBS="-lresolv"])
 
 LIBS_TMP="${LIBS}"
@@ -110,6 +134,8 @@ AC_LINK_IFELSE([AC_LANG_SOURCE([
 LIBS="${LIBS_TMP}"
 PC_LIBS="${RESOLV_LIBS} ${PC_LIBS}"
 
+fi
+
 m4_ifdef([PKG_INSTALLDIR], [PKG_INSTALLDIR],
     [AC_ARG_WITH([pkgconfigdir],
         [AS_HELP_STRING([--with-pkgconfigdir],
@@ -126,6 +152,8 @@ AC_SUBST([PC_LIBS], [${PC_LIBS}])
 
 AC_SUBST(PARSER_CFLAGS)
 AC_SUBST(PARSER_LIBS)
+AC_SUBST(RESOLV_CFLAGS)
 AC_SUBST(RESOLV_LIBS)
+AC_SUBST(WARNING_FLAGS)
 AC_CONFIG_FILES([Makefile libstrophe.pc])
 AC_OUTPUT
