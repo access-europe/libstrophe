@@ -240,7 +240,7 @@ void xmpp_conn_set_jid(xmpp_conn_t *const conn, const char *const jid);
 const char *xmpp_conn_get_pass(const xmpp_conn_t *const conn);
 void xmpp_conn_set_pass(xmpp_conn_t *const conn, const char *const pass);
 xmpp_ctx_t *xmpp_conn_get_context(xmpp_conn_t *const conn);
-void xmpp_conn_sslcert_path(xmpp_conn_t * const conn, char *path);
+void xmpp_conn_set_ssl_cert_path(xmpp_conn_t * const conn, char *path);
 void xmpp_conn_disable_tls(xmpp_conn_t *const conn);
 int xmpp_conn_is_secured(xmpp_conn_t *const conn);
 void xmpp_conn_set_keepalive(xmpp_conn_t *const conn,

@@ -182,7 +182,7 @@ struct _xmpp_conn_t {
     int auth_legacy_enabled;
     int secured; /* set when stream is secured with TLS */
 
-    /* FM+ SSL directory path */
+    /* SSL certification directory */
     char *ssl_cert_path;
 
     /* if server returns <bind/> or <session/> we must do them */

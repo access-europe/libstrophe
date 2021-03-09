@@ -1030,7 +1030,7 @@ void xmpp_conn_disable_tls(xmpp_conn_t *const conn)
  *  @param conn a Strophe connection object
  *  @param path a path to SSL certificate directory
  */
-void xmpp_conn_sslcert_path(xmpp_conn_t * const conn, char *path)
+void xmpp_conn_set_ssl_cert_path(xmpp_conn_t *const conn, char *path)
 {
     conn->ssl_cert_path = xmpp_strdup(conn->ctx, path);
 }
